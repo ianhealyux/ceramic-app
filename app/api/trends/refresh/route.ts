@@ -3,9 +3,11 @@ import Anthropic from '@anthropic-ai/sdk';
 import { saveTrends } from '@/lib/trends';
 import type { Trend } from '@/types';
 
+const HEX_RE = /^#[0-9A-Fa-f]{6}$/;
+
 const SYSTEM_PROMPT = `You are a trend researcher specializing in artisan ceramics and handmade pottery styling for social media.
 
-Your task: Search for current trends in styling and photographing handmade ceramic pieces for Instagram, Pinterest, and artisan design shops.
+Your task: Identify current trends in styling and photographing handmade ceramic pieces for Instagram, Pinterest, and artisan design shops.
 
 Focus on:
 - Background settings and environments trending for ceramic product photography
@@ -14,17 +16,59 @@ Focus on:
 - Scene compositions that get high engagement
 
 Return EXACTLY 6 trend objects as a JSON array. Each object must have:
-- "title": Short name in Spanish, max 4 words (e.g. "Tonos tierra")
-- "prompt": Scene description in English for Stable Diffusion. Describe the ENVIRONMENT ONLY (surface, setting, lighting, props). Do NOT mention the ceramic piece itself. Max 25 words.
-- "colors": Array of 2-3 hex color codes representing the palette
+- "title": Short trend name in Spanish, 2-4 words (e.g. "Tonos tierra", "Jardín salvaje")
+- "prompt": Scene description in English for Stable Diffusion image generation. Describe ONLY the environment: surface, setting, lighting, and props. Do NOT mention any ceramic piece, pottery, cup, mug, plate, or bowl. Max 25 words.
+- "colors": Array of exactly 2 or 3 hex color codes representing the trend palette (e.g. ["#C4A882", "#8B6F47"])
 
-Return ONLY the JSON array, no other text.`;
+IMPORTANT:
+- Return ONLY the raw JSON array. No markdown, no code blocks, no explanation.
+- Each hex color must be exactly 7 characters: # followed by 6 hex digits.
+- Each prompt must be a vivid scene description that works as a Stable Diffusion backdrop.
+- Make each trend visually distinct from the others.`;
+
+function extractJSON(text: string): string {
+  // Strip markdown code fences if present
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (fenced) return fenced[1].trim();
+
+  // Find the JSON array directly
+  const arrStart = text.indexOf('[');
+  const arrEnd = text.lastIndexOf(']');
+  if (arrStart !== -1 && arrEnd > arrStart) {
+    return text.slice(arrStart, arrEnd + 1);
+  }
+
+  return text.trim();
+}
+
+function validateTrends(data: unknown): data is Trend[] {
+  if (!Array.isArray(data) || data.length !== 6) return false;
+
+  return data.every(
+    (t) =>
+      typeof t.title === 'string' &&
+      t.title.length > 0 &&
+      t.title.split(/\s+/).length <= 4 &&
+      typeof t.prompt === 'string' &&
+      t.prompt.length > 0 &&
+      Array.isArray(t.colors) &&
+      t.colors.length >= 2 &&
+      t.colors.length <= 3 &&
+      t.colors.every((c: unknown) => typeof c === 'string' && HEX_RE.test(c))
+  );
+}
 
 export async function POST(req: NextRequest) {
-  // Verify cron secret for Vercel Cron jobs
   const authHeader = req.headers.get('authorization');
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+  }
+
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return NextResponse.json(
+      { error: 'ANTHROPIC_API_KEY no configurada' },
+      { status: 500 }
+    );
   }
 
   try {
@@ -39,27 +83,24 @@ export async function POST(req: NextRequest) {
       messages: [
         {
           role: 'user',
-          content: 'Search for the latest ceramic styling trends and return the JSON array.',
+          content:
+            'Generate the latest ceramic styling trends. Return ONLY the JSON array.',
         },
       ],
     });
 
-    const textContent = message.content.find((c) => c.type === 'text');
-    if (!textContent || textContent.type !== 'text') {
+    const textBlock = message.content.find((c) => c.type === 'text');
+    if (!textBlock || textBlock.type !== 'text') {
       throw new Error('No text response from Anthropic');
     }
 
-    const trends: Trend[] = JSON.parse(textContent.text);
+    const raw = extractJSON(textBlock.text);
+    const trends: unknown = JSON.parse(raw);
 
-    // Validate structure
-    if (!Array.isArray(trends) || trends.length !== 6) {
-      throw new Error('Invalid trends format: expected 6 items');
-    }
-
-    for (const trend of trends) {
-      if (!trend.title || !trend.prompt || !Array.isArray(trend.colors)) {
-        throw new Error('Invalid trend object structure');
-      }
+    if (!validateTrends(trends)) {
+      throw new Error(
+        `Invalid trends structure: got ${Array.isArray(trends) ? trends.length : typeof trends} items`
+      );
     }
 
     await saveTrends(trends);
