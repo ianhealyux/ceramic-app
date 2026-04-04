@@ -23,6 +23,12 @@ export async function POST(req: NextRequest) {
 
     // Fetch the no-bg image from Blob storage
     const imageResponse = await fetch(imageUrl);
+    if (!imageResponse.ok) {
+      return NextResponse.json(
+        { error: 'No se pudo descargar la imagen' },
+        { status: 502 }
+      );
+    }
     const imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
 
     const lightingPrompt = buildLightingPrompt(trendPrompt || '');

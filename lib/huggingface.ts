@@ -4,25 +4,27 @@ const hf = new HfInference(process.env.HUGGINGFACE_API_TOKEN);
 
 /**
  * Remove background using RMBG-1.4
- * Input: image bytes
- * Output: PNG with transparent background
+ * Uses raw fetch because RMBG-1.4 returns a PNG image directly,
+ * not the JSON segmentation masks that hf.imageSegmentation() expects.
  */
-export async function removeBackground(imageBuffer: Buffer): Promise<Blob> {
-  const uint8 = new Uint8Array(imageBuffer);
-  const result = await hf.imageSegmentation({
-    model: 'briaai/RMBG-1.4',
-    data: new Blob([uint8]),
-  });
+export async function removeBackground(imageBuffer: Buffer): Promise<Buffer> {
+  const response = await fetch(
+    'https://api-inference.huggingface.co/models/briaai/RMBG-1.4',
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${process.env.HUGGINGFACE_API_TOKEN}`,
+      },
+      body: new Uint8Array(imageBuffer),
+    }
+  );
 
-  // RMBG-1.4 returns the segmented image directly as a Blob
-  // The HF inference API wraps it — we need the raw image output
-  if (result instanceof Blob) {
-    return result;
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Error de RMBG-1.4 (${response.status}): ${text}`);
   }
 
-  // Fallback: if the API returns segmentation masks, use the first one
-  // This shouldn't happen with RMBG-1.4 but handles edge cases
-  throw new Error('Formato de respuesta inesperado de RMBG-1.4');
+  return Buffer.from(await response.arrayBuffer());
 }
 
 /**
@@ -50,19 +52,23 @@ export async function relightImage(
 /**
  * Generate background/scene using SDXL
  * Input: text prompt describing the scene
- * Output: generated background image as Blob (1024x1024 default)
+ * Output: generated background image as Blob
+ * Dimensions are snapped to multiples of 8 for SDXL compatibility.
  */
 export async function generateBackground(
   prompt: string,
   width: number = 1080,
   height: number = 1350
 ): Promise<Blob> {
+  const w = Math.round(width / 8) * 8;
+  const h = Math.round(height / 8) * 8;
+
   const response = await hf.textToImage({
     model: 'stabilityai/stable-diffusion-xl-base-1.0',
     inputs: prompt,
     parameters: {
-      width,
-      height,
+      width: w,
+      height: h,
       num_inference_steps: 30,
       guidance_scale: 7.5,
     },

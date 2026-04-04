@@ -29,6 +29,19 @@ export async function POST(req: NextRequest) {
       fetch(backgroundUrl),
     ]);
 
+    if (!pieceRes.ok) {
+      return NextResponse.json(
+        { error: 'No se pudo descargar la imagen de la pieza' },
+        { status: 502 }
+      );
+    }
+    if (!bgRes.ok) {
+      return NextResponse.json(
+        { error: 'No se pudo descargar la imagen del fondo' },
+        { status: 502 }
+      );
+    }
+
     const pieceBuffer = Buffer.from(await pieceRes.arrayBuffer());
     const bgBuffer = Buffer.from(await bgRes.arrayBuffer());
 
@@ -54,13 +67,38 @@ export async function POST(req: NextRequest) {
       .resize(scaledW, scaledH, { fit: 'inside' })
       .toBuffer();
 
-    // Create soft drop shadow
+    // Create soft drop shadow with padding so blur doesn't clip at edges
     const shadowOffset = 8;
     const shadowBlur = 20;
-    const shadow = await sharp(piece)
+    const shadowPadding = shadowBlur * 3;
+
+    const { data: shadowData, info: shadowInfo } = await sharp(piece)
       .ensureAlpha()
+      .extend({
+        top: shadowPadding,
+        bottom: shadowPadding,
+        left: shadowPadding,
+        right: shadowPadding,
+        background: { r: 0, g: 0, b: 0, alpha: 0 },
+      })
       .modulate({ brightness: 0 })
       .blur(shadowBlur)
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+
+    // Reduce shadow opacity to 40% for a natural look
+    for (let i = 3; i < shadowData.length; i += 4) {
+      shadowData[i] = Math.round(shadowData[i] * 0.4);
+    }
+
+    const shadow = await sharp(shadowData, {
+      raw: {
+        width: shadowInfo.width,
+        height: shadowInfo.height,
+        channels: 4 as 4,
+      },
+    })
+      .png()
       .toBuffer();
 
     // Center position
@@ -72,8 +110,8 @@ export async function POST(req: NextRequest) {
       .composite([
         {
           input: shadow,
-          left: left + shadowOffset,
-          top: top + shadowOffset,
+          left: left + shadowOffset - shadowPadding,
+          top: top + shadowOffset - shadowPadding,
           blend: 'over',
         },
         {
