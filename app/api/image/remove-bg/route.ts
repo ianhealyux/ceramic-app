@@ -22,12 +22,11 @@ export async function POST(req: NextRequest) {
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const resultBlob = await removeBackground(buffer);
+    const resultBuffer = await removeBackground(buffer);
 
-    // Store result in Vercel Blob
     const { url } = await put(
       `no-bg/${Date.now()}.png`,
-      resultBlob,
+      resultBuffer,
       { access: 'public', contentType: 'image/png' }
     );
 
