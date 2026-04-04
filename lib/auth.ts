@@ -16,16 +16,19 @@ export const authOptions: NextAuthOptions = {
           throw new Error('Ingresá usuario y contraseña');
         }
 
-        // Rate limiting by IP
+        // Rate limiting por IP
         const forwarded = req?.headers?.['x-forwarded-for'];
-        const ip = typeof forwarded === 'string'
-          ? forwarded.split(',')[0].trim()
-          : '127.0.0.1';
+        const ip =
+          typeof forwarded === 'string'
+            ? forwarded.split(',')[0].trim()
+            : '127.0.0.1';
 
         const rateLimitResult = await checkRateLimit(ip);
         if (!rateLimitResult.success) {
           if (rateLimitResult.locked) {
-            throw new Error('Cuenta bloqueada. Intentá más tarde.');
+            throw new Error(
+              'Demasiados intentos fallidos. Tu acceso está bloqueado por 1 hora.'
+            );
           }
           throw new Error(
             `Demasiados intentos. Esperá ${rateLimitResult.retryAfter} segundos.`
@@ -36,7 +39,10 @@ export const authOptions: NextAuthOptions = {
         const passwordHash = process.env.APP_PASSWORD_HASH;
 
         if (!validUsername || !passwordHash) {
-          throw new Error('Configuración de usuario no encontrada');
+          console.error(
+            '[auth] APP_USERNAME o APP_PASSWORD_HASH no configurados'
+          );
+          throw new Error('Error de configuración del servidor');
         }
 
         if (credentials.username !== validUsername) {
@@ -54,7 +60,7 @@ export const authOptions: NextAuthOptions = {
   ],
   session: {
     strategy: 'jwt',
-    maxAge: 7 * 24 * 60 * 60, // 7 days
+    maxAge: 7 * 24 * 60 * 60, // 7 días
   },
   pages: {
     signIn: '/login',
