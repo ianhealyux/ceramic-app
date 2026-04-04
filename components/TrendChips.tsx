@@ -14,42 +14,45 @@ export default function TrendChips({
   onSelect,
 }: TrendChipsProps) {
   return (
-    <div className="flex flex-col gap-3">
-      <label className="text-sm font-medium text-ceramic-700">
+    <fieldset className="flex flex-col gap-3">
+      <legend className="text-sm font-medium text-ceramic-700">
         Elegí un estilo de tendencia
-      </label>
+      </legend>
       <div className="flex flex-wrap gap-2">
         {trends.map((trend) => {
           const isSelected = selected?.title === trend.title;
           return (
             <button
               key={trend.title}
+              type="button"
               onClick={() => onSelect(trend)}
+              aria-pressed={isSelected}
               className={`
-                flex items-center gap-2 rounded-full px-4 py-2 text-sm
-                transition-all duration-200
+                flex items-center gap-2.5 rounded-full px-4 py-2.5 text-sm
+                transition-all duration-150 select-none
                 ${
                   isSelected
-                    ? 'bg-ceramic-600 text-white shadow-md'
-                    : 'bg-white text-ceramic-700 shadow-sm hover:bg-ceramic-100 hover:shadow'
+                    ? 'bg-ceramic-700 text-white shadow-md ring-2 ring-ceramic-400 ring-offset-2'
+                    : 'bg-white text-ceramic-700 shadow-sm ring-1 ring-ceramic-200 hover:bg-ceramic-50 hover:ring-ceramic-300 active:bg-ceramic-100'
                 }
-                border border-ceramic-200
               `}
             >
-              <div className="flex gap-1">
+              <span className="flex gap-1" aria-hidden="true">
                 {trend.colors.map((color) => (
                   <span
                     key={color}
-                    className="inline-block h-3 w-3 rounded-full border border-white/50"
+                    className={`inline-block h-3.5 w-3.5 rounded-full ${
+                      isSelected ? 'ring-1 ring-white/40' : 'ring-1 ring-ceramic-200'
+                    }`}
                     style={{ backgroundColor: color }}
                   />
                 ))}
-              </div>
+              </span>
               <span>{trend.title}</span>
             </button>
           );
         })}
       </div>
-    </div>
+    </fieldset>
   );
 }

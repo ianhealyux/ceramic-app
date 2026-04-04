@@ -1,12 +1,14 @@
 'use client';
 
 import { useSession } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
+import Link from 'next/link';
 import { useEffect } from 'react';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { status } = useSession();
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -26,22 +28,32 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     return null;
   }
 
+  const isUpload = pathname === '/upload';
+
   return (
     <div className="min-h-screen">
-      <header className="border-b border-ceramic-200 bg-white px-6 py-4">
-        <div className="mx-auto flex max-w-4xl items-center justify-between">
-          <h1 className="text-xl font-bold text-ceramic-800">Cerámica</h1>
-          <nav className="flex gap-4 text-sm">
-            <a
+      <header className="sticky top-0 z-40 border-b border-ceramic-200 bg-white/95 backdrop-blur-sm">
+        <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-3 md:px-6 md:py-4">
+          <Link href="/upload" className="text-xl font-bold text-ceramic-800">
+            Cerámica
+          </Link>
+          <nav>
+            <Link
               href="/upload"
-              className="text-ceramic-600 hover:text-ceramic-800"
+              className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                isUpload
+                  ? 'bg-ceramic-100 text-ceramic-800'
+                  : 'text-ceramic-500 hover:text-ceramic-700'
+              }`}
             >
               Nueva publicación
-            </a>
+            </Link>
           </nav>
         </div>
       </header>
-      <main className="mx-auto max-w-4xl px-6 py-8">{children}</main>
+      <main className="mx-auto max-w-4xl px-4 py-6 md:px-6 md:py-8">
+        {children}
+      </main>
     </div>
   );
 }
