@@ -1,10 +1,9 @@
-import { kv } from '@vercel/kv';
 import type { Trend } from '@/types';
 
 const KV_KEY = 'trends:current';
 const TTL_SECONDS = 16 * 24 * 60 * 60; // 16 days
 
-const FALLBACK_TRENDS: Trend[] = [
+export const FALLBACK_TRENDS: Trend[] = [
   {
     title: 'Tonos tierra',
     prompt: 'rustic wooden table with dried eucalyptus branches, warm terracotta tones, soft afternoon light',
@@ -37,9 +36,20 @@ const FALLBACK_TRENDS: Trend[] = [
   },
 ];
 
+async function getKv() {
+  if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) {
+    return null;
+  }
+  const { kv } = await import('@vercel/kv');
+  return kv;
+}
+
 export async function getTrends(): Promise<Trend[]> {
   try {
-    const trends = await kv.get<Trend[]>(KV_KEY);
+    const kvClient = await getKv();
+    if (!kvClient) return FALLBACK_TRENDS;
+
+    const trends = await kvClient.get<Trend[]>(KV_KEY);
     if (trends && trends.length > 0) {
       return trends;
     }
@@ -50,7 +60,9 @@ export async function getTrends(): Promise<Trend[]> {
 }
 
 export async function saveTrends(trends: Trend[]): Promise<void> {
-  await kv.set(KV_KEY, trends, { ex: TTL_SECONDS });
+  const kvClient = await getKv();
+  if (!kvClient) {
+    throw new Error('KV not configured');
+  }
+  await kvClient.set(KV_KEY, trends, { ex: TTL_SECONDS });
 }
-
-export { FALLBACK_TRENDS };
