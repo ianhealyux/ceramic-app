@@ -39,11 +39,11 @@ export default function CropTool({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="text-sm font-medium text-ceramic-600">
-        Recortá tu imagen — {LABELS[postType]}
-      </div>
+      <p className="text-sm font-medium text-ceramic-600">
+        Ajustá el recorte — {LABELS[postType]}
+      </p>
 
-      <div className="relative h-[400px] w-full overflow-hidden rounded-lg bg-ceramic-100">
+      <div className="relative h-[50vh] min-h-[300px] max-h-[500px] w-full overflow-hidden rounded-xl bg-ceramic-100">
         <Cropper
           image={imageSrc}
           crop={crop}
@@ -54,25 +54,29 @@ export default function CropTool({
           onCropComplete={handleCropComplete}
           showGrid={true}
           style={{
-            containerStyle: { borderRadius: '0.5rem' },
+            containerStyle: { borderRadius: '0.75rem' },
           }}
         />
       </div>
 
-      <div className="flex items-center gap-3">
-        <label className="text-sm text-ceramic-500" htmlFor="zoom">
+      <div className="flex items-center gap-3 px-1">
+        <label className="shrink-0 text-sm text-ceramic-500" htmlFor="crop-zoom">
           Zoom
         </label>
         <input
-          id="zoom"
+          id="crop-zoom"
           type="range"
           min={1}
           max={3}
-          step={0.1}
+          step={0.05}
           value={zoom}
           onChange={(e) => setZoom(Number(e.target.value))}
+          aria-label={`Zoom: ${zoom.toFixed(1)}x`}
           className="h-2 flex-1 cursor-pointer appearance-none rounded-lg bg-ceramic-200 accent-ceramic-600"
         />
+        <span className="w-10 text-right text-xs tabular-nums text-ceramic-400">
+          {zoom.toFixed(1)}x
+        </span>
       </div>
     </div>
   );
