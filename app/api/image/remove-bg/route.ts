@@ -32,9 +32,10 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ url });
   } catch (error) {
-    console.error('Error removing background:', error);
+    const message = error instanceof Error ? error.message : 'Error desconocido';
+    console.error('Error removing background:', message);
     return NextResponse.json(
-      { error: 'Error al remover el fondo' },
+      { error: `Error al remover el fondo: ${message}` },
       { status: 500 }
     );
   }
