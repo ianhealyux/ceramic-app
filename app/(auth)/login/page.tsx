@@ -25,9 +25,11 @@ export default function LoginPage() {
 
       if (result?.error) {
         setError(result.error);
-      } else {
+      } else if (result?.ok) {
         router.push('/upload');
         router.refresh();
+      } else {
+        setError('Error inesperado. Intentá de nuevo.');
       }
     } catch {
       setError('Error de conexión. Intentá de nuevo.');
@@ -42,11 +44,15 @@ export default function LoginPage() {
         <div className="mb-8 text-center">
           <h1 className="text-3xl font-bold text-ceramic-800">Cerámica</h1>
           <p className="mt-2 text-sm text-ceramic-500">
-            Editor de fotos con AI
+            Editor de fotos con IA
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <form
+          onSubmit={handleSubmit}
+          className="flex flex-col gap-4"
+          aria-describedby={error ? 'login-error' : undefined}
+        >
           <div>
             <label
               htmlFor="username"
@@ -56,12 +62,14 @@ export default function LoginPage() {
             </label>
             <input
               id="username"
+              name="username"
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
               autoComplete="username"
-              className="w-full rounded-lg border border-ceramic-200 bg-white px-4 py-3 text-ceramic-800 focus:border-ceramic-500 focus:outline-none focus:ring-2 focus:ring-ceramic-500/20"
+              disabled={loading}
+              className="w-full rounded-lg border border-ceramic-200 bg-white px-4 py-3 text-ceramic-800 focus:border-ceramic-500 focus:outline-none focus:ring-2 focus:ring-ceramic-500/20 disabled:opacity-50"
             />
           </div>
 
@@ -74,17 +82,24 @@ export default function LoginPage() {
             </label>
             <input
               id="password"
+              name="password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
               autoComplete="current-password"
-              className="w-full rounded-lg border border-ceramic-200 bg-white px-4 py-3 text-ceramic-800 focus:border-ceramic-500 focus:outline-none focus:ring-2 focus:ring-ceramic-500/20"
+              disabled={loading}
+              className="w-full rounded-lg border border-ceramic-200 bg-white px-4 py-3 text-ceramic-800 focus:border-ceramic-500 focus:outline-none focus:ring-2 focus:ring-ceramic-500/20 disabled:opacity-50"
             />
           </div>
 
           {error && (
-            <p className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
+            <p
+              id="login-error"
+              role="alert"
+              aria-live="assertive"
+              className="rounded-lg bg-red-50 p-3 text-sm text-red-600"
+            >
               {error}
             </p>
           )}
@@ -92,7 +107,8 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="mt-2 rounded-lg bg-ceramic-600 py-3 text-sm font-medium text-white shadow-sm transition-colors hover:bg-ceramic-700 disabled:opacity-50"
+            aria-busy={loading}
+            className="mt-2 rounded-lg bg-ceramic-600 py-3 text-sm font-medium text-white shadow-sm transition-colors hover:bg-ceramic-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {loading ? 'Entrando...' : 'Entrar'}
           </button>
