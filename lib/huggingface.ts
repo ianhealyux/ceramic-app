@@ -23,6 +23,7 @@ export async function removeBackground(imageBuffer: Buffer): Promise<Buffer> {
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/octet-stream',
+          'x-wait-for-model': 'true',
         },
         body: new Uint8Array(imageBuffer),
       }

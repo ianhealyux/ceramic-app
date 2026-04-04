@@ -5,6 +5,8 @@ import { authOptions } from '@/lib/auth';
 import { generateBackground } from '@/lib/huggingface';
 import { buildPrompt } from '@/lib/prompt-builder';
 
+export const maxDuration = 60;
+
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) {

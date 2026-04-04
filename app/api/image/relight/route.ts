@@ -5,6 +5,8 @@ import { authOptions } from '@/lib/auth';
 import { relightImage } from '@/lib/huggingface';
 import { buildLightingPrompt } from '@/lib/prompt-builder';
 
+export const maxDuration = 60;
+
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) {

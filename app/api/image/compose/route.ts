@@ -4,6 +4,8 @@ import { put } from '@vercel/blob';
 import sharp from 'sharp';
 import { authOptions } from '@/lib/auth';
 
+export const maxDuration = 60;
+
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) {

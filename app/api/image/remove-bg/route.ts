@@ -4,6 +4,8 @@ import { put } from '@vercel/blob';
 import { authOptions } from '@/lib/auth';
 import { removeBackground } from '@/lib/huggingface';
 
+export const maxDuration = 60;
+
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) {
