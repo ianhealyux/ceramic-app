@@ -1,6 +1,7 @@
 import { HfInference } from '@huggingface/inference';
 
 const hf = new HfInference(process.env.HUGGINGFACE_API_TOKEN);
+const ROUTER_BASE = 'https://router.huggingface.co/hf-inference';
 
 /**
  * Remove background using RMBG-1.4
@@ -17,7 +18,7 @@ export async function removeBackground(imageBuffer: Buffer): Promise<Buffer> {
   const maxRetries = 3;
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     const response = await fetch(
-      'https://api-inference.huggingface.co/models/briaai/RMBG-1.4',
+      'https://router.huggingface.co/hf-inference/models/briaai/RMBG-1.4',
       {
         method: 'POST',
         headers: {
@@ -72,6 +73,7 @@ export async function relightImage(
       prompt: lightingPrompt,
       strength: 0.20,
     },
+    endpointUrl: `${ROUTER_BASE}/models/lllyasviel/ic-light`,
   });
 
   return response;
@@ -100,6 +102,7 @@ export async function generateBackground(
       num_inference_steps: 30,
       guidance_scale: 7.5,
     },
+    endpointUrl: `${ROUTER_BASE}/models/stabilityai/stable-diffusion-xl-base-1.0`,
   });
 
   return response;
