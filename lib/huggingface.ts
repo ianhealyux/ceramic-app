@@ -1,59 +1,58 @@
-import { HfInference } from '@huggingface/inference';
+import { InferenceClient } from '@huggingface/inference';
+import sharp from 'sharp';
 
-const hf = new HfInference(process.env.HUGGINGFACE_API_TOKEN);
-const ROUTER_BASE = 'https://router.huggingface.co/hf-inference';
+const hf = new InferenceClient(process.env.HUGGINGFACE_API_TOKEN);
 
 /**
- * Remove background using RMBG-1.4
- * Uses raw fetch because RMBG-1.4 returns a PNG image directly,
- * not the JSON segmentation masks that hf.imageSegmentation() expects.
- * Retries on 503 (model loading) up to 3 times with increasing wait.
+ * Remove background using RMBG-2.0 (via fal-ai provider)
+ * Returns a PNG with transparent background.
+ *
+ * Steps:
+ * 1. Call imageSegmentation → returns mask (base64 B&W image)
+ * 2. Apply mask as alpha channel to the original image using sharp
  */
 export async function removeBackground(imageBuffer: Buffer): Promise<Buffer> {
-  const token = process.env.HUGGINGFACE_API_TOKEN;
-  if (!token) {
-    throw new Error('HUGGINGFACE_API_TOKEN no configurado');
+  const segments = await hf.imageSegmentation({
+    model: 'briaai/RMBG-2.0',
+    provider: 'fal-ai',
+    inputs: new Blob([new Uint8Array(imageBuffer)], { type: 'image/png' }),
+  });
+
+  if (!Array.isArray(segments) || segments.length === 0) {
+    throw new Error('RMBG-2.0: no se recibió máscara de segmentación');
   }
 
-  const maxRetries = 3;
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
-    const response = await fetch(
-      'https://router.huggingface.co/hf-inference/models/briaai/RMBG-1.4',
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/octet-stream',
-          'x-wait-for-model': 'true',
-        },
-        body: new Uint8Array(imageBuffer),
-      }
-    );
+  // The mask is a base64-encoded B&W image (white = foreground)
+  const maskBase64 = segments[0].mask;
+  const maskBuffer = Buffer.from(maskBase64, 'base64');
 
-    if (response.ok) {
-      const contentType = response.headers.get('content-type') || '';
-      if (contentType.includes('image')) {
-        return Buffer.from(await response.arrayBuffer());
-      }
-      // If JSON response, the model might have returned an error
-      const json = await response.json();
-      throw new Error(`Respuesta inesperada de RMBG-1.4: ${JSON.stringify(json)}`);
-    }
+  // Get original image dimensions
+  const { width: w, height: h } = await sharp(imageBuffer).metadata();
+  if (!w || !h) throw new Error('No se pudieron obtener las dimensiones de la imagen');
 
-    // Model is loading — wait and retry
-    if (response.status === 503 && attempt < maxRetries - 1) {
-      const body = await response.json().catch(() => ({}));
-      const waitTime = (body as { estimated_time?: number }).estimated_time || 20;
-      console.log(`RMBG-1.4 cargando, reintentando en ${waitTime}s (intento ${attempt + 1}/${maxRetries})`);
-      await new Promise((r) => setTimeout(r, waitTime * 1000));
-      continue;
-    }
+  // Resize mask to match original and convert to single-channel grayscale
+  const alphaMask = await sharp(maskBuffer)
+    .resize(w, h)
+    .grayscale()
+    .raw()
+    .toBuffer();
 
-    const text = await response.text();
-    throw new Error(`Error de RMBG-1.4 (${response.status}): ${text}`);
+  // Get original as raw RGBA
+  const original = await sharp(imageBuffer)
+    .ensureAlpha()
+    .raw()
+    .toBuffer();
+
+  // Apply mask as alpha: multiply existing alpha by mask value
+  for (let i = 0; i < alphaMask.length; i++) {
+    original[i * 4 + 3] = alphaMask[i]; // set alpha from mask
   }
 
-  throw new Error('RMBG-1.4: máximo de reintentos alcanzado');
+  const result = await sharp(original, { raw: { width: w, height: h, channels: 4 } })
+    .png()
+    .toBuffer();
+
+  return result;
 }
 
 /**
@@ -73,7 +72,6 @@ export async function relightImage(
       prompt: lightingPrompt,
       strength: 0.20,
     },
-    endpointUrl: `${ROUTER_BASE}/models/lllyasviel/ic-light`,
   });
 
   return response;
@@ -102,8 +100,7 @@ export async function generateBackground(
       num_inference_steps: 30,
       guidance_scale: 7.5,
     },
-    endpointUrl: `${ROUTER_BASE}/models/stabilityai/stable-diffusion-xl-base-1.0`,
-  });
+  }, { outputType: 'blob' });
 
   return response;
 }
