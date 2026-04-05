@@ -4,7 +4,7 @@ import sharp from 'sharp';
 const hf = new InferenceClient(process.env.HUGGINGFACE_API_TOKEN);
 
 /**
- * Remove background using RMBG-2.0 (via fal-ai provider)
+ * Remove background using RMBG-2.0 (via free hf-inference provider)
  * Returns a PNG with transparent background.
  *
  * Steps:
@@ -14,7 +14,7 @@ const hf = new InferenceClient(process.env.HUGGINGFACE_API_TOKEN);
 export async function removeBackground(imageBuffer: Buffer): Promise<Buffer> {
   const segments = await hf.imageSegmentation({
     model: 'briaai/RMBG-2.0',
-    provider: 'fal-ai',
+    provider: 'hf-inference',
     inputs: new Blob([new Uint8Array(imageBuffer)], { type: 'image/png' }),
   });
 
